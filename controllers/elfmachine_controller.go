@@ -240,7 +240,7 @@ func (r *ElfMachineReconciler) reconcileIPAddress(ctx *context.MachineContext) (
 		return ctrl.Result{}, nil
 	}
 
-	ctx.Logger.Info("Reconcile IP address")
+	ctx.Logger.Info("Reconcile IP address", "finalizers", ctx.ElfMachine.Finalizers)
 
 	// Save MachineStaticIPFinalizer first and then allocate IP.
 	// If the IP has been allocated but the MachineStaticIPFinalizer has not been saved,

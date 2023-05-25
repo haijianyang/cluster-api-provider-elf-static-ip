@@ -36,11 +36,11 @@ import (
 	clusterctlv1 "sigs.k8s.io/cluster-api/cmd/clusterctl/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	addonsv1 "sigs.k8s.io/cluster-api/exp/addons/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	ctrlmgr "sigs.k8s.io/controller-runtime/pkg/manager"
 	ctrlsig "sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	apiv1beta1 "github.com/smartxworks/cluster-api-provider-elf-static-ip/api/v1beta1"
 	"github.com/smartxworks/cluster-api-provider-elf-static-ip/controllers"
 	"github.com/smartxworks/cluster-api-provider-elf-static-ip/pkg/manager"
 	"github.com/smartxworks/cluster-api-provider-elf-static-ip/version"
@@ -130,9 +130,18 @@ func main() {
 
 	// Create a function that adds all of the controllers and webhooks to the manager.
 	addToManager := func(ctx *context.ControllerManagerContext, mgr ctrlmgr.Manager) error {
+		if err := (&apiv1beta1.ElfMachineValidator{
+			Client: mgr.GetClient(),
+			Logger: mgr.GetLogger().WithName("ElfMachineValidator"),
+		}).SetupWebhookWithManager(mgr); err != nil {
+			return err
+		}
+
 		if err := controllers.AddMachineControllerToManager(ctx, mgr); err != nil {
 			return err
 		}
+
+		setupChecks(mgr)
 
 		return nil
 	}
@@ -145,8 +154,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupChecks(mgr)
-
 	sigHandler := ctrlsig.SetupSignalHandler()
 	setupLog.Info("starting controller manager")
 	if err := mgr.Start(sigHandler); err != nil {
@@ -156,12 +163,11 @@ func main() {
 }
 
 func setupChecks(mgr ctrlmgr.Manager) {
-	if err := mgr.AddReadyzCheck("ping", healthz.Ping); err != nil {
+	if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
 		setupLog.Error(err, "unable to create ready check")
 		os.Exit(1)
 	}
-
-	if err := mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+	if err := mgr.AddHealthzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
 		setupLog.Error(err, "unable to create health check")
 		os.Exit(1)
 	}
