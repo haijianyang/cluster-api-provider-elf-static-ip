@@ -339,7 +339,9 @@ func (r *ElfMachineReconciler) reconcileDeviceIPAddress(ctx *context.MachineCont
 func (r *ElfMachineReconciler) getIPPool(ctx *context.MachineContext, device capev1.NetworkDeviceSpec) (ipam.IPPool, error) {
 	poolMatchLabels := make(map[string]string)
 	// Prefer IPPool of device. Only Metal3 IPPool is supported now.
+	isAddressesFromPool := false
 	if len(device.AddressesFromPools) > 0 && ipamutil.IsMetal3IPPoolRef(device.AddressesFromPools[0]) {
+		isAddressesFromPool = true
 		poolMatchLabels[ipam.ClusterIPPoolNamespaceKey] = ctx.ElfMachine.Namespace
 		poolMatchLabels[ipam.ClusterIPPoolNameKey] = device.AddressesFromPools[0].Name
 	} else {
@@ -351,7 +353,7 @@ func (r *ElfMachineReconciler) getIPPool(ctx *context.MachineContext, device cap
 		}
 	}
 
-	ipPool, err := ctx.IPAMService.GetAvailableIPPool(ctx, poolMatchLabels, ctx.Cluster.ObjectMeta)
+	ipPool, err := ctx.IPAMService.GetAvailableIPPool(ctx, poolMatchLabels, ctx.Cluster.ObjectMeta, isAddressesFromPool)
 	if err != nil {
 		ctx.Logger.Error(err, "failed to get an available IPPool")
 		return nil, err

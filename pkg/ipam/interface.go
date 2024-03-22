@@ -38,7 +38,7 @@ type IPAddressManager interface {
 	ReleaseIPs(ctx goctx.Context, owner metav1.Object, pool IPPool) (int, error)
 
 	// GetAvailableIPPool gets an available ip pool in the cluster namespace
-	GetAvailableIPPool(ctx goctx.Context, poolMatchLabels map[string]string, clusterMeta metav1.ObjectMeta) (IPPool, error)
+	GetAvailableIPPool(ctx goctx.Context, poolMatchLabels map[string]string, clusterMeta metav1.ObjectMeta, isAddressesFromPool bool) (IPPool, error)
 }
 
 type IPAddress interface {

@@ -128,7 +128,7 @@ func (m *Metal3IPAM) ReleaseIPs(ctx goctx.Context, owner metav1.Object, pool ipa
 	return len(ipClaimList.Items), nil
 }
 
-func (m *Metal3IPAM) GetAvailableIPPool(ctx goctx.Context, poolMatchLabels map[string]string, clusterMeta metav1.ObjectMeta) (ipam.IPPool, error) {
+func (m *Metal3IPAM) GetAvailableIPPool(ctx goctx.Context, poolMatchLabels map[string]string, clusterMeta metav1.ObjectMeta, isAddressesFromPool bool) (ipam.IPPool, error) {
 	poolNamespace := getIPPoolNamespace(poolMatchLabels, clusterMeta)
 
 	// if the specific ip-pool name is provided use that to get the ip-pool
@@ -138,11 +138,24 @@ func (m *Metal3IPAM) GetAvailableIPPool(ctx goctx.Context, poolMatchLabels map[s
 			Namespace: poolNamespace,
 			Name:      poolName,
 		}, &ipPool); err != nil {
-			if apierrors.IsNotFound(err) {
+			if !apierrors.IsNotFound(err) {
+				return nil, errors.Wrapf(err, "failed to get IPPool %s/%s", poolNamespace, poolName)
+			}
+
+			if !isAddressesFromPool {
 				return nil, nil
 			}
 
-			return nil, errors.Wrapf(err, "failed to get IPPool %s/%s", poolNamespace, poolName)
+			if err := m.Get(ctx, apitypes.NamespacedName{
+				Namespace: ipam.DefaultIPPoolNamespace,
+				Name:      poolName,
+			}, &ipPool); err != nil {
+				if !apierrors.IsNotFound(err) {
+					return nil, errors.Wrapf(err, "failed to get IPPool %s/%s", ipam.DefaultIPPoolNamespace, poolName)
+				}
+
+				return nil, nil
+			}
 		}
 
 		return toIPPool(ipPool), nil

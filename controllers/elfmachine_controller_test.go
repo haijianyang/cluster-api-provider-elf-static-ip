@@ -366,5 +366,31 @@ var _ = Describe("ElfMachineReconciler", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ipPool).To(BeNil())
 		})
+
+		It("xxx", func() {
+			metal3IPPool.Namespace = ipam.DefaultIPPoolNamespace
+			elfMachine.Spec.Network.Devices = []capev1.NetworkDeviceSpec{
+				{NetworkType: capev1.NetworkTypeIPV4, IPAddrs: []string{}, AddressesFromPools: []corev1.TypedLocalObjectReference{
+					{APIGroup: pointer.String("ipam.metal3.io"), Kind: "IPPool", Name: metal3IPPool.Name},
+				}},
+			}
+			ctrlContext := newCtrlContexts(elfCluster, cluster, elfMachine, machine, elfMachineTemplate, metal3IPPool, metal3IPClaim, metal3IPAddress)
+			fake.InitOwnerReferences(ctrlContext, elfCluster, cluster, elfMachine, machine)
+			machineContext := &context.MachineContext{
+				IPAMService: metal3io.NewIpam(ctrlContext.Client, ctrlContext.Logger),
+				MachineContext: &capecontext.MachineContext{
+					ControllerContext: ctrlContext,
+					Cluster:           cluster,
+					Machine:           machine,
+					ElfMachine:        elfMachine,
+					Logger:            ctrlContext.Logger,
+				},
+			}
+			reconciler := &ElfMachineReconciler{ControllerContext: ctrlContext}
+			ipPool, err := reconciler.getIPPool(machineContext, elfMachine.Spec.Network.Devices[0])
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ipPool.GetNamespace()).To(Equal(metal3IPPool.Namespace))
+			Expect(ipPool.GetName()).To(Equal(metal3IPPool.Name))
+		})
 	})
 })
